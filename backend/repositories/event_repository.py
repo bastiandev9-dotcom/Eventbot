@@ -15,6 +15,11 @@ class EventRepository(BaseRepository):
     TABLE = "events"
 
     @classmethod
+    def get_by_id(cls, event_id: str) -> Optional[Dict]:
+        """Ambil event detail lengkap beserta tiketnya."""
+        return EventModel.get_by_id(event_id)
+
+    @classmethod
     def get_by_slug(cls, slug: str) -> Optional[Dict]:
         """Ambil event by slug."""
         return EventModel.get_by_slug(slug)
@@ -26,7 +31,7 @@ class EventRepository(BaseRepository):
 
     @classmethod
     def search(cls, **kwargs) -> List[Dict]:
-        """Cari event dengan filter."""
+        """Cari event dengan filter. kwargs diteruskan langsung ke EventModel.search."""
         return EventModel.search(**kwargs)
 
     @classmethod

@@ -41,6 +41,36 @@ class RegistrationModel:
         return execute_query(sql, (registration_id,), fetch_one=True)
 
     @classmethod
+    def get_all(cls, status_filter: str = None, limit: int = 100) -> List[Dict]:
+        """Ambil semua registrasi (untuk admin), opsional filter status."""
+        conditions = ["r.cancelled_at IS NULL"]
+        params = []
+
+        if status_filter:
+            conditions.append("r.status = %s")
+            params.append(status_filter)
+
+        where_clause = " AND ".join(conditions)
+        params.append(limit)
+
+        sql = f"""
+            SELECT r.id, r.quantity, r.total_price, r.status,
+                   r.payment_method, r.created_at,
+                   e.id as event_id, e.title as event_title,
+                   e.start_date, e.location,
+                   t.name as ticket_name, t.price as ticket_price,
+                   u.name as user_name, u.email as user_email
+            FROM registrations r
+            JOIN events e ON r.event_id = e.id
+            JOIN tickets t ON r.ticket_id = t.id
+            JOIN users u ON r.user_id = u.id
+            WHERE {where_clause}
+            ORDER BY r.created_at DESC
+            LIMIT %s;
+        """
+        return execute_query(sql, tuple(params), fetch_all=True) or []
+
+    @classmethod
     def get_by_user(cls, user_id: str, status: str = None) -> List[Dict]:
         """Ambil semua registrasi user."""
         conditions = ["r.user_id = %s", "r.cancelled_at IS NULL"]

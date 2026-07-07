@@ -86,7 +86,7 @@ BEGIN
     v_event_id := v_ticket.event_id;
 
     INSERT INTO registrations (user_id, ticket_id, event_id, quantity, total_price, status, payment_method)
-    VALUES (p_user_id, p_ticket_id, v_event_id, p_quantity, v_total_price, 'pending', p_payment_method)
+    VALUES (p_user_id, p_ticket_id, v_event_id, p_quantity, v_total_price, 'pending'::registration_status, p_payment_method)
     RETURNING id INTO v_registration_id;
 
     RETURN QUERY SELECT TRUE, v_registration_id, v_total_price, 

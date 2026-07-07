@@ -40,19 +40,45 @@ class EventModel:
 
     @classmethod
     def get_by_id(cls, event_id: str) -> Optional[Dict]:
-        """Ambil event detail lengkap menggunakan query langsung."""
+        """Ambil event detail lengkap beserta daftar tiketnya."""
+        # Query event utama
         sql = """
             SELECT
                 e.id, e.title, e.slug, e.description, e.short_description,
                 e.start_date, e.end_date, e.start_time, e.end_time,
                 e.location, e.location_map_url, e.image_url, e.banner_url,
                 e.capacity, e.status, e.view_count, e.is_published,
-                u.name AS organizer_name, u.id AS organizer_id
+                u.name AS organizer_name, u.id AS organizer_id,
+                COALESCE(reg.registered_count, 0) AS registered_count
             FROM events e
             JOIN users u ON e.organizer_id = u.id
+            LEFT JOIN (
+                SELECT event_id, COUNT(*) AS registered_count
+                FROM registrations
+                WHERE status = 'confirmed'
+                GROUP BY event_id
+            ) reg ON reg.event_id = e.id
             WHERE e.id = %s AND e.deleted_at IS NULL;
         """
-        return execute_query(sql, (event_id,), fetch_one=True)
+        event = execute_query(sql, (event_id,), fetch_one=True)
+        if not event:
+            return None
+
+        # Query tiket untuk event ini
+        ticket_sql = """
+            SELECT
+                t.id, t.name, t.description, t.price,
+                t.quantity AS quota, t.sold AS sold_count,
+                t.max_per_order, t.status,
+                t.sale_starts_at, t.sale_ends_at,
+                (t.quantity - t.sold) AS remaining
+            FROM tickets t
+            WHERE t.event_id = %s AND t.deleted_at IS NULL
+            ORDER BY t.price ASC;
+        """
+        tickets = execute_query(ticket_sql, (event_id,), fetch_all=True) or []
+        event["tickets"] = tickets
+        return event
 
     @classmethod
     def get_by_slug(cls, slug: str) -> Optional[Dict]:
@@ -68,14 +94,17 @@ class EventModel:
     @classmethod
     def search(cls, query: str = None, location: str = None,
                category_slug: str = None, start_date: str = None,
-               end_date: str = None, status: str = 'upcoming',
+               end_date: str = None, status: str = None,
                min_price: float = None, max_price: float = None,
+               is_published: bool = True,   # False = tampilkan semua (untuk admin)
                limit: int = 20, offset: int = 0) -> List[Dict]:
-        """Cari event dengan filter dinamis menggunakan query langsung."""
-        conditions = ["e.deleted_at IS NULL", "e.is_published = TRUE"]
+        """Cari event dengan filter dinamis. status=None menampilkan semua status."""
+        conditions = ["e.deleted_at IS NULL"]
+        if is_published:
+            conditions.append("e.is_published = TRUE")
         params: List[Any] = []
 
-        if status:
+        if status:   # hanya filter jika status diisi
             conditions.append("e.status = %s::event_status")
             params.append(status)
         if location:
@@ -112,25 +141,96 @@ class EventModel:
         params.extend([limit, offset])
 
         sql = f"""
-            SELECT DISTINCT ON (e.id)
+            SELECT
                 e.id, e.title, e.slug, e.short_description,
                 e.start_date, e.end_date, e.location, e.image_url,
-                e.status, e.view_count, u.name AS organizer_name,
-                MIN(t.price) AS min_price
+                e.status, e.capacity, e.view_count, e.is_published,
+                u.name AS organizer_name,
+                MIN(t.price) AS min_price,
+                COALESCE(SUM(t.quantity), 0)::int AS total_quota,
+                COALESCE(SUM(t.sold), 0)::int     AS total_sold,
+                COALESCE(MAX(reg.registered_count), 0) AS registered_count
             FROM events e
             JOIN users u ON e.organizer_id = u.id
             LEFT JOIN event_categories ec ON e.id = ec.event_id
             LEFT JOIN categories c ON ec.category_id = c.id
             LEFT JOIN tickets t ON e.id = t.event_id AND t.deleted_at IS NULL
+            LEFT JOIN (
+                SELECT event_id, COUNT(*) AS registered_count
+                FROM registrations
+                WHERE status = 'confirmed'
+                GROUP BY event_id
+            ) reg ON reg.event_id = e.id
             WHERE {where_clause}
             GROUP BY e.id, e.title, e.slug, e.short_description,
                      e.start_date, e.end_date, e.location, e.image_url,
-                     e.status, e.view_count, u.name
+                     e.status, e.capacity, e.view_count, e.is_published, u.name
             {having_sql}
-            ORDER BY e.id, e.start_date ASC
+            ORDER BY e.start_date ASC, e.id ASC
             LIMIT %s OFFSET %s;
         """
         return execute_query(sql, tuple(params), fetch_all=True) or []
+
+    @classmethod
+    def count_search(cls, query: str = None, location: str = None,
+                     category_slug: str = None, start_date: str = None,
+                     end_date: str = None, status: str = None,
+                     min_price: float = None, max_price: float = None,
+                     is_published: bool = True) -> int:
+        """Hitung total event yang cocok dengan filter (tanpa LIMIT/OFFSET)."""
+        conditions = ["e.deleted_at IS NULL"]
+        if is_published:
+            conditions.append("e.is_published = TRUE")
+        params: List[Any] = []
+
+        if status:
+            conditions.append("e.status = %s::event_status")
+            params.append(status)
+        if location:
+            conditions.append("e.location ILIKE %s")
+            params.append(f"%{location}%")
+        if category_slug:
+            conditions.append("c.slug = %s")
+            params.append(category_slug)
+        if start_date:
+            conditions.append("e.start_date >= %s")
+            params.append(start_date)
+        if end_date:
+            conditions.append("e.end_date <= %s")
+            params.append(end_date)
+        if query:
+            conditions.append(
+                "(e.title ILIKE %s OR e.description ILIKE %s OR e.location ILIKE %s)"
+            )
+            like_q = f"%{query}%"
+            params.extend([like_q, like_q, like_q])
+
+        having_clauses = []
+        if min_price is not None:
+            having_clauses.append("MIN(t.price) >= %s")
+            params.append(min_price)
+        if max_price is not None:
+            having_clauses.append("MIN(t.price) <= %s")
+            params.append(max_price)
+
+        where_clause = " AND ".join(conditions)
+        having_sql   = f"HAVING {' AND '.join(having_clauses)}" if having_clauses else ""
+
+        sql = f"""
+            SELECT COUNT(*) AS total FROM (
+                SELECT e.id
+                FROM events e
+                JOIN users u ON e.organizer_id = u.id
+                LEFT JOIN event_categories ec ON e.id = ec.event_id
+                LEFT JOIN categories c ON ec.category_id = c.id
+                LEFT JOIN tickets t ON e.id = t.event_id AND t.deleted_at IS NULL
+                WHERE {where_clause}
+                GROUP BY e.id
+                {having_sql}
+            ) sub;
+        """
+        result = execute_query(sql, tuple(params), fetch_one=True)
+        return int(result["total"]) if result else 0
 
     @classmethod
     def update(cls, event_id: str, **kwargs) -> Optional[Dict]:
@@ -156,12 +256,41 @@ class EventModel:
 
     @classmethod
     def delete(cls, event_id: str) -> bool:
-        """Soft delete event (cascade ke tiket via function)."""
-        result = execute_query(
-            "SELECT soft_delete_event(%s)",
-            (event_id,), fetch_one=True
-        )
-        return result['soft_delete_event'] if result else False
+        """Soft delete event secara atomic (cascade ke tiket dalam satu transaksi)."""
+        from backend.config import get_db_connection
+        from psycopg2.extras import RealDictCursor
+
+        try:
+            with get_db_connection() as conn:
+                with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                    # Soft-delete event
+                    cur.execute(
+                        "UPDATE events SET deleted_at = CURRENT_TIMESTAMP "
+                        "WHERE id = %s AND deleted_at IS NULL",
+                        (event_id,)
+                    )
+                    affected = cur.rowcount
+
+                    if affected == 0:
+                        # Event tidak ditemukan atau sudah dihapus — bukan error
+                        conn.rollback()
+                        return False
+
+                    # Soft-delete semua tiket terkait (boleh 0 tiket)
+                    cur.execute(
+                        "UPDATE tickets SET deleted_at = CURRENT_TIMESTAMP "
+                        "WHERE event_id = %s AND deleted_at IS NULL",
+                        (event_id,)
+                    )
+
+                    conn.commit()
+                    return True
+        except Exception as e:
+            # Log error tapi jangan crash — kembalikan False agar service menangani dengan baik
+            import traceback
+            print(f"[EventModel.delete] Error saat menghapus event {event_id}: {e}")
+            traceback.print_exc()
+            return False
 
     @classmethod
     def list_by_organizer(cls, organizer_id: str, 

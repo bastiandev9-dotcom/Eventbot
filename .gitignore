@@ -72,7 +72,6 @@ logs/
 log/
 
 # ── Uploads & Media ───────────────────────────────────────
-uploads/
 media/
 static/uploads/
 

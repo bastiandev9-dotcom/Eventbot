@@ -72,6 +72,20 @@ class TestEntityExtraction:
         locations = [loc.lower() for loc in entities["location"]]
         assert any("jakarta" in loc for loc in locations)
 
+    def test_extract_location_no_multiword_false_positive(self):
+        """Location entity tidak boleh berisi multi-word seperti 'jakarta minggu ini'."""
+        from backend.nlp.regex_rules import extract_entities
+        entities = extract_entities("ada event di Jakarta minggu ini")
+        assert "location" in entities
+        for loc in entities["location"]:
+            # Setiap entry location harus single word atau nama kota dikenal
+            assert "minggu" not in loc.lower(), (
+                f"Location mengandung kata waktu: '{loc}'"
+            )
+            assert "ini" not in loc.lower(), (
+                f"Location mengandung kata ekstra: '{loc}'"
+            )
+
     def test_extract_date(self):
         from backend.nlp.regex_rules import extract_entities
         entities = extract_entities("event bulan Agustus 2026")

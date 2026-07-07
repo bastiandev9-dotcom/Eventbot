@@ -20,8 +20,17 @@ _chatbot_service = ChatbotService()
 # ── Request Schemas ───────────────────────────────────────
 
 class ChatRequest(BaseModel):
-    message: str = Field(..., min_length=1, max_length=1000, example="Ada event teknologi di Jakarta?")
-    session_token: Optional[str] = Field(None, example="tok_abc123")
+    message: str = Field(..., min_length=1, max_length=1000)
+    session_token: Optional[str] = None
+
+    model_config = {
+        "json_schema_extra": {
+            "example": {
+                "message": "Ada event teknologi di Jakarta?",
+                "session_token": "tok_abc123",
+            }
+        }
+    }
 
 
 # ── Helpers ───────────────────────────────────────────────

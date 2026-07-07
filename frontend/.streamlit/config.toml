@@ -1,14 +1,39 @@
+# ============================================================
+# .streamlit/config.toml
+# Konfigurasi Streamlit untuk EventBot
+# ============================================================
+
 [theme]
-primaryColor = "#3B82F6"
-backgroundColor = "#0F0F0F"
+# Warna dasar sesuai dark_theme.css EventBot
+primaryColor         = "#7C3AED"
+backgroundColor      = "#0F0F1A"
 secondaryBackgroundColor = "#1A1A2E"
-textColor = "#E0E0E0"
-font = "sans-serif"
+textColor            = "#F8F9FA"
+font                 = "sans serif"
 
 [server]
-headless = true
-runOnSave = true
-fileWatcherType = "poll"
+# Development settings
+port                 = 8501
+enableCORS           = false
+enableXsrfProtection = true
+maxUploadSize        = 10
+headless             = false
 
 [browser]
-gatherUsageStats = false
+gatherUsageStats     = false
+serverAddress        = "localhost"
+serverPort           = 8501
+
+[runner]
+# Jangan fast-rerun untuk menghindari flash
+fastReruns           = true
+postScriptGC         = true
+
+[client]
+# Sembunyikan toolbar bawaan Streamlit
+toolbarMode          = "minimal"
+showErrorDetails     = true
+
+[logger]
+level                = "info"
+messageFormat        = "%(asctime)s %(message)s"

@@ -117,20 +117,33 @@ class ChatbotService:
         category = entities.get('category')
         date = entities.get('date')
 
+        # entities.get() mengembalikan list — ambil elemen pertama jika ada
+        location_str = location[0] if isinstance(location, list) and location else location
+        category_str = category[0] if isinstance(category, list) and category else category
+        date_str = date[0] if isinstance(date, list) and date else date
+        query_list = entities.get('query')
+        query_str = query_list[0] if isinstance(query_list, list) and query_list else query_list
+
         # Search via database
         events = EventModel.search(
-            query=entities.get('query'),
-            location=location,
-            category_slug=category,
-            start_date=date,
+            query=query_str,
+            location=location_str,
+            category_slug=category_str,
+            start_date=date_str,
             limit=5
         )
 
-        return self.response_builder.event_list(events, location, category)
+        return self.response_builder.event_list(events, location_str, category_str)
 
     def _handle_event_detail(self, entities: Dict, context: Dict) -> Dict:
         """Handle detail event."""
-        event_name = entities.get('event_name')
+        event_name_raw = entities.get('event_name')
+        # entities.get() mengembalikan list — ambil elemen pertama jika ada
+        event_name = (
+            event_name_raw[0]
+            if isinstance(event_name_raw, list) and event_name_raw
+            else event_name_raw
+        )
 
         if not event_name and context.get('last_event_id'):
             # Ambil dari context (event yang baru dibahas)

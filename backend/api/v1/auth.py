@@ -17,17 +17,39 @@ router = APIRouter(prefix="/auth", tags=["Auth"])
 # ── Request / Response Schemas ────────────────────────────
 
 class RegisterRequest(BaseModel):
-    name: str = Field(..., min_length=2, max_length=100, example="Budi Santoso")
-    email: EmailStr = Field(..., example="budi@email.com")
-    password: str = Field(..., min_length=6, example="secret123")
-    role: str = Field(default="participant", example="participant")
-    phone: Optional[str] = Field(None, example="08123456789")
-    bio: Optional[str] = Field(None, example="Suka ikut event teknologi")
+    name: str = Field(..., min_length=2, max_length=100)
+    email: EmailStr
+    password: str = Field(..., min_length=6)
+    role: str = Field(default="participant")
+    phone: Optional[str] = None
+    bio: Optional[str] = None
+
+    model_config = {
+        "json_schema_extra": {
+            "example": {
+                "name": "Budi Santoso",
+                "email": "budi@email.com",
+                "password": "secret123",
+                "role": "participant",
+                "phone": "08123456789",
+                "bio": "Suka ikut event teknologi",
+            }
+        }
+    }
 
 
 class LoginRequest(BaseModel):
-    email: EmailStr = Field(..., example="budi@email.com")
-    password: str = Field(..., example="secret123")
+    email: EmailStr
+    password: str
+
+    model_config = {
+        "json_schema_extra": {
+            "example": {
+                "email": "budi@email.com",
+                "password": "secret123",
+            }
+        }
+    }
 
 
 class ChangePasswordRequest(BaseModel):
@@ -45,7 +67,7 @@ async def register(body: RegisterRequest):
     - **name**: Nama lengkap user
     - **email**: Email unik
     - **password**: Minimal 6 karakter
-    - **role**: `participant` (default) atau `organizer`
+    - **role**: `participant` (default)
     """
     result = AuthService.register(
         name=body.name,

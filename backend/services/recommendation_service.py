@@ -23,11 +23,24 @@ class RecommendationService:
         from backend.config import execute_query
 
         sql = """
-            SELECT id, title, slug, image_url, view_count, start_date, location
-            FROM events
-            WHERE deleted_at IS NULL AND is_published = TRUE
-              AND status IN ('upcoming', 'ongoing')
-            ORDER BY view_count DESC
+            SELECT
+                e.id, e.title, e.slug, e.image_url, e.view_count,
+                e.start_date, e.location, e.status, e.capacity, e.short_description,
+                MIN(t.price) AS min_price,
+                COALESCE(MAX(reg.registered_count), 0) AS registered_count
+            FROM events e
+            LEFT JOIN tickets t ON e.id = t.event_id AND t.deleted_at IS NULL
+            LEFT JOIN (
+                SELECT event_id, COUNT(*) AS registered_count
+                FROM registrations
+                WHERE status = 'confirmed'
+                GROUP BY event_id
+            ) reg ON reg.event_id = e.id
+            WHERE e.deleted_at IS NULL AND e.is_published = TRUE
+              AND e.status IN ('upcoming', 'ongoing')
+            GROUP BY e.id, e.title, e.slug, e.image_url, e.view_count,
+                     e.start_date, e.location, e.status, e.capacity, e.short_description
+            ORDER BY e.view_count DESC
             LIMIT %s;
         """
         return execute_query(sql, (limit,), fetch_all=True) or []

@@ -1,0 +1,25 @@
+# ============================================================
+# EventBot Frontend Dependencies
+# ============================================================
+# Install: pip install -r requirements.txt
+
+# ── Core Framework ────────────────────────────────────────
+streamlit==1.35.0
+
+# ── HTTP Client ───────────────────────────────────────────
+requests==2.32.3
+
+# ── Data Processing ───────────────────────────────────────
+pandas==2.2.2
+numpy==1.26.4
+
+# ── Visualization ─────────────────────────────────────────
+plotly==5.22.0
+
+# ── Utilities ─────────────────────────────────────────────
+python-dotenv==1.0.1
+
+# ── Optional: untuk fitur tambahan ───────────────────────
+# Pillow==10.3.0           # image processing
+# qrcode==7.4.2            # QR code generation (tiket)
+# streamlit-extras==0.4.2  # additional streamlit components

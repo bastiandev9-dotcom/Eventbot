@@ -25,8 +25,8 @@ print("\n📦 TEST 1: Config & Database Connection")
 print("-" * 40)
 
 try:
-    from backend.config import test_connection, get_table_count, table_exists
-    if test_connection():
+    from backend.config import test_connection as check_db_connection, get_table_count, table_exists
+    if check_db_connection():
         print("   ✅ Database connected")
     else:
         print("   ❌ Database connection failed")

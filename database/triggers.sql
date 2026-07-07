@@ -80,24 +80,30 @@ CREATE TRIGGER trg_events_generate_slug
 CREATE OR REPLACE FUNCTION update_ticket_sold_count()
 RETURNS TRIGGER AS $$
 BEGIN
-    IF NEW.status = 'confirmed' AND OLD.status != 'confirmed' THEN
-        UPDATE tickets 
-        SET sold = sold + NEW.quantity 
+    -- INSERT baru: langsung tambah sold sesuai quantity
+    IF TG_OP = 'INSERT' THEN
+        UPDATE tickets
+        SET sold = sold + NEW.quantity
         WHERE id = NEW.ticket_id;
-    ELSIF OLD.status = 'confirmed' AND NEW.status != 'confirmed' THEN
-        UPDATE tickets 
-        SET sold = sold - OLD.quantity 
-        WHERE id = NEW.ticket_id;
+
+    -- UPDATE: kurangi sold jika registrasi baru saja dibatalkan (dari status apapun)
+    ELSIF TG_OP = 'UPDATE' THEN
+        IF NEW.status = 'cancelled' AND OLD.status != 'cancelled' THEN
+            UPDATE tickets
+            SET sold = GREATEST(0, sold - OLD.quantity)
+            WHERE id = NEW.ticket_id;
+        END IF;
     END IF;
+
     RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
 
-COMMENT ON FUNCTION update_ticket_sold_count() IS 'Update jumlah tiket terjual saat status registrasi berubah';
+COMMENT ON FUNCTION update_ticket_sold_count() IS 'Update jumlah tiket terjual saat registrasi dibuat atau dibatalkan';
 
 DROP TRIGGER IF EXISTS trg_registrations_update_sold ON registrations;
 CREATE TRIGGER trg_registrations_update_sold
-    AFTER UPDATE ON registrations
+    AFTER INSERT OR UPDATE ON registrations
     FOR EACH ROW EXECUTE FUNCTION update_ticket_sold_count();
 
 -- 4. AUTO-UPDATE CHAT SESSION ACTIVITY

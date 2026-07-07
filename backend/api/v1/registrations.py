@@ -17,13 +17,31 @@ router = APIRouter(prefix="/registrations", tags=["Registrations"])
 # ── Request Schemas ───────────────────────────────────────
 
 class BookTicketRequest(BaseModel):
-    ticket_id: str = Field(..., example="uuid-tiket")
+    ticket_id: str
     quantity: int = Field(default=1, ge=1, le=20)
-    payment_method: Optional[str] = Field(None, example="transfer_bank")
+    payment_method: Optional[str] = None
+
+    model_config = {
+        "json_schema_extra": {
+            "example": {
+                "ticket_id": "uuid-tiket",
+                "quantity": 2,
+                "payment_method": "transfer_bank",
+            }
+        }
+    }
 
 
 class CheckInRequest(BaseModel):
-    registration_id: str = Field(..., example="uuid-registrasi")
+    registration_id: str
+
+    model_config = {
+        "json_schema_extra": {
+            "example": {
+                "registration_id": "uuid-registrasi",
+            }
+        }
+    }
 
 
 # ── Helpers ───────────────────────────────────────────────
@@ -68,6 +86,25 @@ async def book_ticket(
     }
 
 
+@router.get("/")
+async def list_registrations(
+    event_id: Optional[str] = Query(None, description="Filter per event"),
+    reg_status: Optional[str] = Query(None, alias="status", description="Filter status: pending, confirmed, cancelled"),
+    authorization: Optional[str] = Header(None),
+):
+    """Daftar semua registrasi. Hanya admin."""
+    user = _get_auth_user(authorization)
+    if user.get("role") != "admin":
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Akses ditolak")
+
+    from backend.models.registration import RegistrationModel
+    if event_id:
+        regs = RegistrationModel.get_event_registrations(event_id)
+    else:
+        regs = RegistrationModel.get_all(status_filter=reg_status)
+    return {"success": True, "data": regs}
+
+
 @router.get("/my")
 async def my_registrations(
     reg_status: Optional[str] = Query(None, alias="status", description="Filter status: pending, confirmed, cancelled"),
@@ -90,7 +127,8 @@ async def cancel_registration(
     authorization: Optional[str] = Header(None),
 ):
     """
-    Batalkan registrasi tiket.
+    Batalkan registrasi tiket. Bisa dipanggil oleh user (batalkan sendiri)
+    maupun admin (tolak pembayaran).
     """
     _get_auth_user(authorization)
     result = RegistrationService.cancel_registration(registration_id)
@@ -108,10 +146,10 @@ async def confirm_payment(
     authorization: Optional[str] = Header(None),
 ):
     """
-    Konfirmasi pembayaran registrasi. Hanya organizer/admin.
+    Konfirmasi pembayaran registrasi. Hanya admin.
     """
     user = _get_auth_user(authorization)
-    if user.get("role") not in ("organizer", "admin"):
+    if user.get("role") != "admin":
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Akses ditolak")
 
     result = RegistrationService.confirm_payment(registration_id)
@@ -129,10 +167,10 @@ async def check_in(
     authorization: Optional[str] = Header(None),
 ):
     """
-    Check-in peserta event. Hanya organizer/admin.
+    Check-in peserta event. Hanya admin.
     """
     user = _get_auth_user(authorization)
-    if user.get("role") not in ("organizer", "admin"):
+    if user.get("role") != "admin":
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Akses ditolak")
 
     result = RegistrationService.check_in(

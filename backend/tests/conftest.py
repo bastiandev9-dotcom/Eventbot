@@ -95,8 +95,8 @@ def dummy_registration() -> Dict:
 
 @pytest.fixture
 def auth_header() -> Dict[str, str]:
-    """Header Authorization dengan token dummy."""
-    return {"Authorization": "Bearer dummy-jwt-token"}
+    """Header Authorization dengan token dummy (32+ karakter agar tidak trigger JWT warning)."""
+    return {"Authorization": "Bearer dummy-jwt-token-for-testing-purposes-only"}
 
 
 # ── JWT mock helper ───────────────────────────────────────

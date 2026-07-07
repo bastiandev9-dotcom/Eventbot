@@ -17,8 +17,10 @@ class UserModel:
     @classmethod
     def create(cls, name: str, email: str, password: str, 
                role: str = 'participant', phone: str = None, 
-               avatar_url: str = None) -> Optional[Dict]:
-        """Buat user baru. Return user dict atau None."""
+               avatar_url: str = None, **kwargs) -> Optional[Dict]:
+        """Buat user baru. Return user dict atau None.
+        Extra kwargs (misal bio) diabaikan karena tidak ada kolomnya.
+        """
         password_hash = hash_password(password)
 
         sql = """

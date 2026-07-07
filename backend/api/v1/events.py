@@ -17,20 +17,38 @@ router = APIRouter(prefix="/events", tags=["Events"])
 # ── Request Schemas ───────────────────────────────────────
 
 class CreateEventRequest(BaseModel):
-    title: str = Field(..., min_length=5, max_length=255, example="Tech Conference 2026")
-    description: str = Field(..., example="Konferensi teknologi tahunan")
-    short_description: str = Field(..., max_length=500, example="Event teknologi terbesar")
-    start_date: str = Field(..., example="2026-08-01")
-    end_date: str = Field(..., example="2026-08-02")
-    start_time: Optional[str] = Field(None, example="09:00")
-    end_time: Optional[str] = Field(None, example="17:00")
-    location: str = Field(..., example="Jakarta Convention Center")
+    title: str = Field(..., min_length=5, max_length=255)
+    description: str
+    short_description: str = Field(..., max_length=500)
+    start_date: str
+    end_date: str
+    start_time: Optional[str] = None
+    end_time: Optional[str] = None
+    location: str
     location_map_url: Optional[str] = None
     image_url: Optional[str] = None
     banner_url: Optional[str] = None
     capacity: Optional[int] = Field(0, ge=0)
-    status: Optional[str] = Field("upcoming", example="upcoming")
+    status: Optional[str] = Field("upcoming")
     is_published: Optional[bool] = False
+
+    model_config = {
+        "json_schema_extra": {
+            "example": {
+                "title": "Tech Conference 2026",
+                "description": "Konferensi teknologi tahunan",
+                "short_description": "Event teknologi terbesar",
+                "start_date": "2026-08-01",
+                "end_date": "2026-08-02",
+                "start_time": "09:00",
+                "end_time": "17:00",
+                "location": "Jakarta Convention Center",
+                "capacity": 500,
+                "status": "upcoming",
+                "is_published": False,
+            }
+        }
+    }
 
 
 class UpdateEventRequest(BaseModel):
@@ -72,16 +90,35 @@ async def list_events(
     category: Optional[str] = Query(None, description="Slug kategori"),
     start_date: Optional[str] = Query(None, description="Tanggal mulai (YYYY-MM-DD)"),
     end_date: Optional[str] = Query(None, description="Tanggal selesai (YYYY-MM-DD)"),
-    event_status: Optional[str] = Query("upcoming", alias="status"),
+    event_status: Optional[str] = Query(None, alias="status"),
     min_price: Optional[float] = Query(None, ge=0),
     max_price: Optional[float] = Query(None, ge=0),
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
+    authorization: Optional[str] = Header(None),
 ):
+    """Daftar event dengan filter & pagination.
+
+    - User biasa / tamu: hanya melihat event yang sudah dipublish (is_published=TRUE).
+    - Admin: melihat semua event termasuk yang belum dipublish.
     """
-    Daftar event dengan filter & pagination.
-    """
+    from backend.models.event import EventModel
+
+    # Tentukan apakah caller adalah admin agar bisa melihat semua event
+    is_admin = False
+    if authorization and authorization.startswith("Bearer "):
+        try:
+            caller = require_auth(authorization.split(" ", 1)[1])
+            if caller.get("role") == "admin":
+                is_admin = True
+        except (ValueError, Exception):
+            pass  # token tidak valid → perlakukan sebagai guest
+
+    # is_published=False berarti tampilkan SEMUA (tidak filter berdasarkan published)
+    show_published_only = not is_admin
+
     offset = (page - 1) * page_size
+
     events = EventService.search_events(
         query=q,
         location=location,
@@ -91,15 +128,29 @@ async def list_events(
         status=event_status,
         min_price=min_price,
         max_price=max_price,
+        is_published=show_published_only,
         limit=page_size,
         offset=offset,
     )
+    total_count = EventModel.count_search(
+        query=q,
+        location=location,
+        category_slug=category,
+        start_date=start_date,
+        end_date=end_date,
+        status=event_status,
+        min_price=min_price,
+        max_price=max_price,
+        is_published=show_published_only,
+    )
+
     return {
-        "success": True,
-        "data": events,
-        "page": page,
-        "page_size": page_size,
-        "count": len(events),
+        "success":    True,
+        "data":       events,
+        "page":       page,
+        "page_size":  page_size,
+        "count":      total_count,   # total semua event yang cocok filter
+        "total_pages": (total_count + page_size - 1) // page_size,
     }
 
 
@@ -139,15 +190,15 @@ async def create_event(
     authorization: Optional[str] = Header(None),
 ):
     """
-    Buat event baru. Hanya untuk role `organizer` atau `admin`.
+    Buat event baru. Hanya untuk role `admin`.
     """
     user = _get_auth_user(authorization)
-    if user.get("role") not in ("organizer", "admin"):
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Hanya organizer yang bisa membuat event")
+    if user.get("role") != "admin":
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Hanya admin yang bisa membuat event")
 
     result = EventService.create_event(
         organizer_id=str(user["id"]),
-        **body.dict(exclude_none=True),
+        **body.model_dump(exclude_none=True),
     )
     if not result.get("success"):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=result.get("message", "Gagal membuat event"))
@@ -160,12 +211,12 @@ async def update_event(
     body: UpdateEventRequest,
     authorization: Optional[str] = Header(None),
 ):
-    """Update data event. Hanya organizer pemilik event atau admin."""
+    """Update data event. Hanya admin."""
     user = _get_auth_user(authorization)
-    if user.get("role") not in ("organizer", "admin"):
+    if user.get("role") != "admin":
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Akses ditolak")
 
-    result = EventService.update_event(event_id, **body.dict(exclude_none=True))
+    result = EventService.update_event(event_id, **body.model_dump(exclude_none=True))
     if not result.get("success"):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=result.get("message", "Gagal update event"))
     return {"success": True, "data": result.get("event")}
@@ -176,9 +227,9 @@ async def delete_event(
     event_id: str,
     authorization: Optional[str] = Header(None),
 ):
-    """Soft-delete event. Hanya organizer pemilik atau admin."""
+    """Soft-delete event. Hanya admin."""
     user = _get_auth_user(authorization)
-    if user.get("role") not in ("organizer", "admin"):
+    if user.get("role") != "admin":
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Akses ditolak")
 
     result = EventService.delete_event(event_id)
@@ -189,7 +240,7 @@ async def delete_event(
 
 @router.get("/organizer/my-events")
 async def my_events(authorization: Optional[str] = Header(None)):
-    """List event yang dibuat oleh organizer yang sedang login."""
+    """List event yang dibuat oleh user yang sedang login."""
     user = _get_auth_user(authorization)
     events = EventService.get_organizer_events(organizer_id=str(user["id"]))
     return {"success": True, "data": events}

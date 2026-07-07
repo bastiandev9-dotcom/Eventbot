@@ -44,8 +44,15 @@ class TicketModel:
     def get_by_event(cls, event_id: str) -> List[Dict]:
         """Ambil semua tiket untuk sebuah event."""
         sql = """
-            SELECT t.*, (t.quantity - t.sold) as remaining
+            SELECT
+                t.id, t.name, t.description, t.price,
+                t.quantity AS quota, t.sold AS sold_count,
+                t.max_per_order, t.status,
+                t.sale_starts_at, t.sale_ends_at,
+                (t.quantity - t.sold) AS remaining,
+                e.id AS event_id, e.title AS event_title
             FROM tickets t
+            JOIN events e ON t.event_id = e.id
             WHERE t.event_id = %s AND t.deleted_at IS NULL
             ORDER BY t.price ASC;
         """
@@ -69,7 +76,15 @@ class TicketModel:
         if not updates:
             return None
 
-        set_clause = ", ".join([f"{k} = %s" for k in updates.keys()])
+        # Buat SET clause — status harus di-cast ke enum ticket_status
+        set_parts = []
+        for k in updates.keys():
+            if k == 'status':
+                set_parts.append(f"status = %s::ticket_status")
+            else:
+                set_parts.append(f"{k} = %s")
+
+        set_clause = ", ".join(set_parts)
         values = list(updates.values()) + [ticket_id]
 
         sql = f"""
@@ -87,6 +102,24 @@ class TicketModel:
             (ticket_id,)
         )
         return result > 0
+
+    @classmethod
+    def get_all(cls, limit: int = 200) -> List[Dict]:
+        """Ambil semua tiket (untuk admin) dengan info event."""
+        sql = """
+            SELECT t.id, t.name, t.description, t.price,
+                   t.quantity AS quota, t.sold AS sold_count,
+                   t.max_per_order, t.status,
+                   t.sale_starts_at, t.sale_ends_at,
+                   (t.quantity - t.sold) AS remaining,
+                   e.id AS event_id, e.title AS event_title
+            FROM tickets t
+            JOIN events e ON t.event_id = e.id
+            WHERE t.deleted_at IS NULL AND e.deleted_at IS NULL
+            ORDER BY e.start_date ASC, t.price ASC
+            LIMIT %s;
+        """
+        return execute_query(sql, (limit,), fetch_all=True) or []
 
     @classmethod
     def get_stats_by_event(cls, event_id: str) -> Optional[Dict]:
