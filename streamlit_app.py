@@ -38,4 +38,10 @@ os.chdir(FRONTEND_DIR)
 
 # ── Jalankan aplikasi frontend utama ─────────────────────
 # Import komponen streamlit setelah path & env sudah di-setup
-import app  # noqa: E402 — ini mengimport frontend/app.py
+try:
+    import app  # noqa: E402 — ini mengimport frontend/app.py
+except Exception as e:
+    import streamlit as st
+    import traceback
+    st.error(f"❌ Error loading app: {e}")
+    st.code(traceback.format_exc())
