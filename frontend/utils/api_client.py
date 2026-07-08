@@ -2,15 +2,19 @@
 API Client
 ==========
 HTTP client untuk berkomunikasi dengan backend EventBot (FastAPI).
-Base URL: http://localhost:8000/api/v1
+Base URL: http://localhost:8000/api/v1 (development)
+         atau BACKEND_URL dari environment (production)
 """
 
+import os
 import requests
 from typing import Optional, Dict, Any, List
 from requests.exceptions import ConnectionError, Timeout, RequestException
 
 # ── Config ────────────────────────────────────────────────
-BASE_URL = "http://localhost:8000/api/v1"
+# Baca dari environment variable atau default ke localhost
+BACKEND_URL = os.getenv("BACKEND_URL", "http://localhost:8000")
+BASE_URL = f"{BACKEND_URL}/api/v1"
 TIMEOUT = 10  # detik
 
 

@@ -1,0 +1,18 @@
+# EventBot - Streamlit Cloud Deployment
+# This file is for deploying the frontend to Streamlit Cloud
+
+# Core Framework
+streamlit==1.35.0
+
+# HTTP Client
+requests==2.32.3
+
+# Data Processing
+pandas==2.2.2
+numpy==1.26.4
+
+# Visualization
+plotly==5.22.0
+
+# Utilities
+python-dotenv==1.0.1

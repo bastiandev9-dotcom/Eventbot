@@ -449,6 +449,39 @@ Browser akan otomatis terbuka. Jika tidak, buka manual:
 
 ---
 
+## ☁️ Deploy ke Cloud (Production)
+
+EventBot bisa di-deploy ke cloud untuk diakses dari internet:
+
+### Panduan Deploy (Pilih salah satu):
+
+| Guide | Untuk Siapa | Waktu |
+|-------|-------------|-------|
+| **[QUICK_DEPLOY.md](QUICK_DEPLOY.md)** | Yang ingin deploy cepat (5-10 menit) | ⚡ Quick |
+| **[DEPLOYMENT_GUIDE.md](DEPLOYMENT_GUIDE.md)** | Yang ingin pemahaman lengkap + screenshot | 📚 Detail |
+| **[DEPLOYMENT_CHECKLIST.md](DEPLOYMENT_CHECKLIST.md)** | Quality assurance & testing | ✅ QA |
+
+### Stack Deployment Rekomendasi:
+- **Database**: [Neon](https://neon.tech) (PostgreSQL cloud gratis)
+- **Backend**: [Railway](https://railway.app) (FastAPI hosting)
+- **Frontend**: [Streamlit Cloud](https://share.streamlit.io) (gratis untuk 1 app)
+
+Semua menggunakan **free tier**, cukup untuk demo & proyek kuliah! 🎓
+
+**Quick Start**:
+```bash
+# 1. Push ke GitHub
+git add .
+git commit -m "Ready to deploy"
+git push origin main
+
+# 2. Ikuti QUICK_DEPLOY.md step by step
+```
+
+Setelah deploy, aplikasi akan live di: `https://eventbot.streamlit.app`
+
+---
+
 ## 🔧 Troubleshooting
 
 | Masalah | Solusi |
