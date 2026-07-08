@@ -23,6 +23,7 @@ DB_CONFIG = {
     "user": os.getenv("DB_USER", "postgres"),
     "password": os.getenv("DB_PASSWORD", ""),
     "database": os.getenv("DB_NAME", "eventbot"),
+    "sslmode": os.getenv("DB_SSLMODE", "prefer"),
 }
 
 # Connection pool (singleton)
