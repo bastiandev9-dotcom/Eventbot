@@ -17,8 +17,5 @@ try:
 except Exception:
     pass
 
-# Pindah working directory ke frontend
-os.chdir(FRONTEND_DIR)
-
-# Jalankan app
+# Jalankan app langsung tanpa chdir
 import app  # noqa: E402
