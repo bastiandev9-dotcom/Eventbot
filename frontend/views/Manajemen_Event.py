@@ -222,13 +222,15 @@ def _render_event_form(event: dict, events_hook: dict) -> None:
     # Jika ada file baru diupload, langsung kirim ke backend dan simpan URL ke session_state
     if uploaded_file is not None:
         import requests as _req
+        import os as _os
+        _BACKEND_URL = _os.getenv("BACKEND_URL", "http://localhost:8000").rstrip("/")
         token = SessionManager.get_token()
         upload_key = f"ev_uploaded_url_{uploaded_file.name}_{len(uploaded_file.getvalue())}"
         if st.session_state.get("ev_upload_key") != upload_key:
             with st.spinner("Mengupload gambar..."):
                 try:
                     resp = _req.post(
-                        "http://localhost:8000/api/v1/upload/image",
+                        f"{_BACKEND_URL}/api/v1/upload/image",
                         files={"file": (uploaded_file.name, uploaded_file.getvalue(), uploaded_file.type)},
                         headers={"Authorization": f"Bearer {token}"},
                         timeout=30,
