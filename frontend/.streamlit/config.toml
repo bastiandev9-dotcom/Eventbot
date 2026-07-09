@@ -12,17 +12,15 @@ textColor            = "#F8F9FA"
 font                 = "sans serif"
 
 [server]
-# Development settings
+# Development settings — headless=true wajib untuk cloud deployment
 port                 = 8501
 enableCORS           = false
 enableXsrfProtection = true
 maxUploadSize        = 10
-headless             = false
+headless             = true
 
 [browser]
 gatherUsageStats     = false
-serverAddress        = "localhost"
-serverPort           = 8501
 
 [runner]
 # Jangan fast-rerun untuk menghindari flash

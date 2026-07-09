@@ -6,6 +6,15 @@ CRUD operations untuk tabel events.
 
 from backend.config import execute_query
 from typing import Optional, List, Dict, Any
+import re
+import uuid as _uuid
+
+
+def _generate_slug(title: str) -> str:
+    """Generate URL-friendly slug dari judul. Tambahkan suffix unik agar tidak tabrakan."""
+    base = re.sub(r'[^a-zA-Z0-9]+', '-', title.lower()).strip('-')
+    suffix = _uuid.uuid4().hex[:6]
+    return f"{base}-{suffix}"
 
 
 class EventModel:
@@ -17,17 +26,19 @@ class EventModel:
     def create(cls, title: str, description: str, short_description: str,
                start_date: str, end_date: str, location: str,
                organizer_id: str, **kwargs) -> Optional[Dict]:
-        """Buat event baru. Slug auto-generate via trigger."""
+        """Buat event baru. Slug di-generate di Python sebagai fallback jika trigger tidak ada."""
+        slug = kwargs.pop('slug', None) or _generate_slug(title)
+
         sql = """
             INSERT INTO events (
-                title, description, short_description, start_date, end_date,
+                title, slug, description, short_description, start_date, end_date,
                 start_time, end_time, location, location_map_url, organizer_id,
                 image_url, banner_url, capacity, status, is_published
-            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             RETURNING id, title, slug, start_date, end_date, location, status, created_at;
         """
         params = (
-            title, description, short_description,
+            title, slug, description, short_description,
             start_date, end_date,
             kwargs.get('start_time'), kwargs.get('end_time'),
             location, kwargs.get('location_map_url'),

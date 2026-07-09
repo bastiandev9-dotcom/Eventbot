@@ -51,9 +51,18 @@ app = FastAPI(
 )
 
 # ── CORS Middleware ───────────────────────────────────────
+# Baca daftar origin yang diizinkan dari environment variable
+# Contoh isi di Railway: ALLOWED_ORIGINS=https://namakamu.streamlit.app,https://namakamu2.streamlit.app
+_raw_origins = os.getenv("ALLOWED_ORIGINS", "")
+_allowed_origins: list[str] = (
+    ["*"]
+    if DEBUG or not _raw_origins.strip()
+    else [o.strip() for o in _raw_origins.split(",") if o.strip()]
+)
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"] if DEBUG else ["https://eventbot.example.com"],
+    allow_origins=_allowed_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -143,7 +152,7 @@ async def upload_image(
     with open(dest_path, "wb") as f:
         f.write(contents)
 
-    url = f"http://localhost:8000/uploads/{safe_folder}/{filename}"
+    url = f"{os.getenv('BACKEND_URL', 'http://localhost:8000')}/uploads/{safe_folder}/{filename}"
     return {
         "success":  True,
         "url":      url,
